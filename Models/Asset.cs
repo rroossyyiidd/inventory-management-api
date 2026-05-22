@@ -8,7 +8,7 @@ public enum AssetStatus
     Disposed
 }
 
-public class Asset
+public class Asset : IAuditable, ISoftDelete
 {
     public int Id { get; set; }
     public string AssetCode { get; set; } = string.Empty;
@@ -18,8 +18,8 @@ public class Asset
     public decimal PurchasePrice { get; set; }
     public DateTime PurchaseDate { get; set; }
     public AssetStatus Status { get; set; } = AssetStatus.Available;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
 
     public int AssetCategoryId { get; set; }

@@ -14,6 +14,32 @@ public class AppDbContext : DbContext
     public DbSet<AssetAssignment> AssetAssignments { get; set; }
     public DbSet<MaintenanceLog> MaintenanceLogs { get; set; }
 
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Loop semua entity yang sedang di-track oleh EF Core
+        foreach (var entry in ChangeTracker.Entries<IAuditable>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    // Saat INSERT — set CreatedAt dan UpdatedAt
+                    entry.Entity.CreatedAt = now;
+                    entry.Entity.UpdatedAt = now;
+                    break;
+
+                case EntityState.Modified:
+                    // Saat UPDATE — hanya update UpdatedAt
+                    // CreatedAt tidak boleh berubah
+                    entry.Entity.UpdatedAt = now;
+                    break;
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -98,16 +124,18 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
+        var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         modelBuilder.Entity<AssetCategory>().HasData(
-            new AssetCategory { Id = 1, Name = "Elektronik", Description = "Laptop, monitor, printer, dll" },
-            new AssetCategory { Id = 2, Name = "Furnitur", Description = "Meja, kursi, lemari, dll" },
-            new AssetCategory { Id = 3, Name = "Kendaraan", Description = "Mobil, motor operasional" }
+            new AssetCategory { Id = 1, Name = "Elektronik", Description = "Laptop, monitor, printer, dll", CreatedAt = seedDate, UpdatedAt = seedDate },
+            new AssetCategory { Id = 2, Name = "Furnitur", Description = "Meja, kursi, lemari, dll", CreatedAt = seedDate, UpdatedAt = seedDate },
+            new AssetCategory { Id = 3, Name = "Kendaraan", Description = "Mobil, motor operasional", CreatedAt = seedDate, UpdatedAt = seedDate }
         );
 
         modelBuilder.Entity<Department>().HasData(
-            new Department { Id = 1, Name = "IT", Location = "Lantai 3" },
-            new Department { Id = 2, Name = "HR", Location = "Lantai 1" },
-            new Department { Id = 3, Name = "Finance", Location = "Lantai 2" }
+            new Department { Id = 1, Name = "IT", Location = "Lantai 3", CreatedAt = seedDate, UpdatedAt = seedDate },
+            new Department { Id = 2, Name = "HR", Location = "Lantai 1", CreatedAt = seedDate, UpdatedAt = seedDate },
+            new Department { Id = 3, Name = "Finance", Location = "Lantai 2", CreatedAt = seedDate, UpdatedAt = seedDate }
         );
     }
 }

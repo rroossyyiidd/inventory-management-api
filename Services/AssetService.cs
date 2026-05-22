@@ -95,8 +95,6 @@ public class AssetService : IAssetService
         PurchasePrice     = asset.PurchasePrice,
         PurchaseDate      = asset.PurchaseDate,
         Status            = asset.Status.ToString(),
-        CreatedAt         = asset.CreatedAt,
-        UpdatedAt         = asset.UpdatedAt,
         AssetCategoryId   = asset.AssetCategoryId,
         AssetCategoryName = asset.AssetCategory?.Name ?? string.Empty
     };

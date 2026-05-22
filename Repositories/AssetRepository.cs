@@ -48,7 +48,6 @@ public class AssetRepository : IAssetRepository
 
     public async Task<Asset> UpdateAsync(Asset asset)
     {
-        asset.UpdatedAt = DateTime.UtcNow;
         _context.Assets.Update(asset);
         await _context.SaveChangesAsync();
         return asset;
