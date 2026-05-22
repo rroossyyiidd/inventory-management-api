@@ -20,6 +20,7 @@ public class Asset
     public AssetStatus Status { get; set; } = AssetStatus.Available;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DeletedAt { get; set; }
 
     public int AssetCategoryId { get; set; }
     public AssetCategory AssetCategory { get; set; } = null!;

@@ -8,6 +8,7 @@ public class Employee
     public string Email { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DeletedAt { get; set; }
 
     public int DepartmentId { get; set; }
     public Department Department { get; set; } = null!;

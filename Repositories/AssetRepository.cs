@@ -56,7 +56,17 @@ public class AssetRepository : IAssetRepository
 
     public async Task DeleteAsync(Asset asset)
     {
-        _context.Assets.Remove(asset);
+        asset.DeletedAt = DateTime.UtcNow;
+        _context.Assets.Update(asset);
         await _context.SaveChangesAsync();
+    }
+
+    // Di Repository, tambahkan method ini kalau dibutuhkan
+    public async Task<IEnumerable<Asset>> GetAllIncludingDeletedAsync()
+    {
+        return await _context.Assets
+            .IgnoreQueryFilters()   // ← bypass global query filter
+            .Include(a => a.AssetCategory)
+            .ToListAsync();
     }
 }
