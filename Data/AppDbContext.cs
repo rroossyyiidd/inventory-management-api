@@ -1,0 +1,109 @@
+using Microsoft.EntityFrameworkCore;
+using InventoryManagement.API.Models;
+
+namespace InventoryManagement.API.Data;
+
+public class AppDbContext : DbContext
+{
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    public DbSet<AssetCategory> AssetCategories { get; set; }
+    public DbSet<Asset> Assets { get; set; }
+    public DbSet<Department> Departments { get; set; }
+    public DbSet<Employee> Employees { get; set; }
+    public DbSet<AssetAssignment> AssetAssignments { get; set; }
+    public DbSet<MaintenanceLog> MaintenanceLogs { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AssetCategory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.HasMany(e => e.Assets)
+                  .WithOne(a => a.AssetCategory)
+                  .HasForeignKey(a => a.AssetCategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Asset>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AssetCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SerialNumber).HasMaxLength(100);
+            entity.Property(e => e.PurchasePrice).HasPrecision(18, 2);
+            entity.HasIndex(e => e.AssetCode).IsUnique();
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<Department>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Location).HasMaxLength(200);
+
+            entity.HasMany(e => e.Employees)
+                  .WithOne(emp => emp.Department)
+                  .HasForeignKey(emp => emp.DepartmentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Employee>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmployeeCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+            entity.HasIndex(e => e.EmployeeCode).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<AssetAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Notes).HasMaxLength(500);
+
+            entity.HasOne(e => e.Asset)
+                  .WithMany(a => a.AssetAssignments)
+                  .HasForeignKey(e => e.AssetId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Employee)
+                  .WithMany(emp => emp.AssetAssignments)
+                  .HasForeignKey(e => e.EmployeeId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MaintenanceLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Description).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.TechnicianName).HasMaxLength(200);
+            entity.Property(e => e.Cost).HasPrecision(18, 2);
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(20);
+
+            entity.HasOne(e => e.Asset)
+                  .WithMany(a => a.MaintenanceLogs)
+                  .HasForeignKey(e => e.AssetId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssetCategory>().HasData(
+            new AssetCategory { Id = 1, Name = "Elektronik", Description = "Laptop, monitor, printer, dll" },
+            new AssetCategory { Id = 2, Name = "Furnitur", Description = "Meja, kursi, lemari, dll" },
+            new AssetCategory { Id = 3, Name = "Kendaraan", Description = "Mobil, motor operasional" }
+        );
+
+        modelBuilder.Entity<Department>().HasData(
+            new Department { Id = 1, Name = "IT", Location = "Lantai 3" },
+            new Department { Id = 2, Name = "HR", Location = "Lantai 1" },
+            new Department { Id = 3, Name = "Finance", Location = "Lantai 2" }
+        );
+    }
+}
