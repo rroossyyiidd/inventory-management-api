@@ -44,6 +44,32 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Apply snake_case ke semua tabel dan kolom
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        {
+            // Konversi nama tabel → snake_case
+            // Contoh: AssetCategories → asset_categories
+            entity.SetTableName(SnakeCaseNamingConvention.ToSnakeCase(entity.GetTableName()!));
+
+            // Konversi nama kolom → snake_case
+            foreach (var property in entity.GetProperties())
+            {
+                property.SetColumnName(SnakeCaseNamingConvention.ToSnakeCase(property.GetColumnName()));
+            }
+
+            // Konversi nama foreign key → snake_case
+            foreach (var key in entity.GetForeignKeys())
+            {
+                key.SetConstraintName(SnakeCaseNamingConvention.ToSnakeCase(key.GetConstraintName()!));
+            }
+
+            // Konversi nama index → snake_case
+            foreach (var index in entity.GetIndexes())
+            {
+                index.SetDatabaseName(SnakeCaseNamingConvention.ToSnakeCase(index.GetDatabaseName()!));
+            }
+        }
+
         // Global Query Filter — otomatis filter data yang sudah di-soft delete
         modelBuilder.Entity<Asset>().HasQueryFilter(a => a.DeletedAt == null);
         modelBuilder.Entity<Employee>().HasQueryFilter(e => e.DeletedAt == null);
