@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Employee> Employees { get; set; }
     public DbSet<AssetAssignment> AssetAssignments { get; set; }
     public DbSet<MaintenanceLog> MaintenanceLogs { get; set; }
+    public DbSet<User> Users { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -148,6 +149,16 @@ public class AppDbContext : DbContext
                   .WithMany(a => a.MaintenanceLogs)
                   .HasForeignKey(e => e.AssetId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(20);
+            entity.HasIndex(e => e.Email).IsUnique();
         });
 
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
