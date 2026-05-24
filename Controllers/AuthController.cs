@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using InventoryManagement.API.Data;
 using InventoryManagement.API.DTOs.Auth;
 using InventoryManagement.API.Models;
+using InventoryManagement.API.Services.Interfaces;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -11,29 +12,31 @@ namespace InventoryManagement.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ITokenService _tokenService;
+    private readonly IConfiguration _config;
 
-    public AuthController(AppDbContext context)
+    public AuthController(
+        AppDbContext context,
+        ITokenService tokenService,
+        IConfiguration config)
     {
-        _context = context;
+        _context      = context;
+        _tokenService = tokenService;
+        _config       = config;
     }
 
     // POST api/auth/register
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
-        // ✅ Validasi email sudah terdaftar
         bool emailExists = await _context.Users
             .AnyAsync(u => u.Email == dto.Email.ToLower().Trim());
 
         if (emailExists)
             return Conflict(new { message = $"Email '{dto.Email}' sudah terdaftar." });
 
-        // ✅ Hash password menggunakan BCrypt
-        // workFactor = 12 → makin tinggi makin aman tapi makin lambat
-        // 12 adalah nilai yang direkomendasikan untuk production
         string passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, workFactor: 12);
 
         var user = new User
@@ -60,8 +63,51 @@ public class AuthController : ControllerBase
         return CreatedAtAction(nameof(GetProfile), new { id = user.Id }, response);
     }
 
+    // POST api/auth/login
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login([FromBody] LoginDto dto)
+    {
+        // ✅ Cari user berdasarkan email
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == dto.Email.ToLower().Trim());
+
+        // ✅ Sengaja pesan error dibuat sama untuk email & password
+        // agar attacker tidak tahu mana yang salah
+        if (user == null || !user.IsActive)
+            return Unauthorized(new { message = "Email atau password salah." });
+
+        // ✅ Verifikasi password dengan BCrypt
+        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
+        if (!isPasswordValid)
+            return Unauthorized(new { message = "Email atau password salah." });
+
+        // ✅ Update LastLoginAt
+        user.LastLoginAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        // ✅ Generate JWT token
+        var token      = _tokenService.GenerateToken(user);
+        var expiresIn  = int.Parse(_config["Jwt:ExpiresInMinutes"]!);
+
+        return Ok(new LoginResponseDto
+        {
+            Token          = token,
+            TokenType      = "Bearer",
+            ExpiresInMinutes = expiresIn,
+            ExpiresAt      = DateTime.UtcNow.AddMinutes(expiresIn),
+            User = new UserInfoDto
+            {
+                Id       = user.Id,
+                FullName = user.FullName,
+                Email    = user.Email,
+                Role     = user.Role
+            }
+        });
+    }
+
     // GET api/auth/users/{id}
-    // Endpoint helper untuk CreatedAtAction di atas
     [HttpGet("users/{id:int}")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
