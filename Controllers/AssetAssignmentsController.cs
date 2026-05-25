@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using InventoryManagement.API.Constants;
 using InventoryManagement.API.DTOs.AssetAssignment;
 using InventoryManagement.API.Services.Interfaces;
 
@@ -17,6 +19,7 @@ public class AssetAssignmentsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> GetAll()
     {
         var assignments = await _assignmentService.GetAllAsync();
@@ -24,6 +27,7 @@ public class AssetAssignmentsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> GetById(int id)
     {
         var assignment = await _assignmentService.GetByIdAsync(id);
@@ -33,6 +37,7 @@ public class AssetAssignmentsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> AssignAsset([FromBody] CreateAssetAssignmentDto dto)
     {
         try
@@ -51,6 +56,7 @@ public class AssetAssignmentsController : ControllerBase
     }
 
     [HttpPut("{id:int}/return")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> ReturnAsset(int id, [FromBody] ReturnAssetDto dto)
     {
         try

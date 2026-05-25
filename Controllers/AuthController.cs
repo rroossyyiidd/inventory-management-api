@@ -6,6 +6,7 @@ using InventoryManagement.API.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Models;
 using InventoryManagement.API.Services.Interfaces;
+using InventoryManagement.API.Constants;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -29,11 +30,31 @@ public class AuthController : ControllerBase
 
     // POST api/auth/register
     [HttpPost("register")]
-    [AllowAnonymous] 
+    [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
+        // ✅ Validasi role harus salah satu dari yang terdaftar
+        if (!Roles.All.Contains(dto.Role))
+            return BadRequest(new
+            {
+                message = $"Role tidak valid. Role yang tersedia: {string.Join(", ", Roles.All)}"
+            });
+
+        // ✅ Hanya Admin yang boleh membuat user dengan role Admin atau Manager
+        // Kalau belum login (register pertama kali), hanya bisa buat role Employee
+        if (dto.Role != Roles.Employee && !User.Identity!.IsAuthenticated)
+            return BadRequest(new
+            {
+                message = "Hanya Admin yang dapat mendaftarkan user dengan role Admin atau Manager."
+            });
+
+        if (dto.Role != Roles.Employee && User.Identity!.IsAuthenticated && !User.IsAdmin())
+            return Forbid();
+
         bool emailExists = await _context.Users
             .AnyAsync(u => u.Email == dto.Email.ToLower().Trim());
 
@@ -47,23 +68,21 @@ public class AuthController : ControllerBase
             FullName     = dto.FullName.Trim(),
             Email        = dto.Email.ToLower().Trim(),
             PasswordHash = passwordHash,
-            Role         = "User",
+            Role         = dto.Role,
             IsActive     = true
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        var response = new AuthResponseDto
+        return CreatedAtAction(nameof(GetProfile), new { id = user.Id }, new AuthResponseDto
         {
             Id        = user.Id,
             FullName  = user.FullName,
             Email     = user.Email,
             Role      = user.Role,
             CreatedAt = user.CreatedAt
-        };
-
-        return CreatedAtAction(nameof(GetProfile), new { id = user.Id }, response);
+        });
     }
 
     // POST api/auth/login
@@ -134,22 +153,17 @@ public class AuthController : ControllerBase
      // GET api/auth/me
     // Endpoint untuk cek siapa user yang sedang login
     [HttpGet("me")]
-    [Authorize]     // ← wajib login, tanpa token akan dapat 401
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public IActionResult Me()
     {
-        // Baca claims dari token via HttpContext.User
-        // Tidak perlu query database sama sekali!
-        var userId    = User.GetUserId();
-        var userEmail = User.GetUserEmail();
-        var userName  = User.GetUserName();
-        var userRole  = User.GetUserRole();
-
         return Ok(new
         {
-            id    = userId,
-            name  = userName,
-            email = userEmail,
-            role  = userRole,
+            id      = User.GetUserId(),
+            name    = User.GetUserName(),
+            email   = User.GetUserEmail(),
+            role    = User.GetUserRole(),
             isAdmin = User.IsAdmin()
         });
     }

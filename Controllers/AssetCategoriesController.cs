@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using InventoryManagement.API.Constants;
 using InventoryManagement.API.Data;
 using InventoryManagement.API.Models;
 
@@ -18,6 +20,7 @@ public class AssetCategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetAll()
     {
         var categories = await _context.AssetCategories.ToListAsync();
@@ -25,6 +28,7 @@ public class AssetCategoriesController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetById(int id)
     {
         var category = await _context.AssetCategories.FindAsync(id);
@@ -34,6 +38,7 @@ public class AssetCategoriesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> Create([FromBody] AssetCategory category)
     {
         category.CreatedAt = DateTime.UtcNow;
@@ -43,6 +48,7 @@ public class AssetCategoriesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> Update(int id, [FromBody] AssetCategory updated)
     {
         var category = await _context.AssetCategories.FindAsync(id);
@@ -56,6 +62,7 @@ public class AssetCategoriesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         var category = await _context.AssetCategories

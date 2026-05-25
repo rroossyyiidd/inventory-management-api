@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using InventoryManagement.API.Constants;
 
 namespace InventoryManagement.API.DTOs.Auth;
 
@@ -20,4 +21,7 @@ public class RegisterDto
     [Required(ErrorMessage = "Konfirmasi password wajib diisi")]
     [Compare("Password", ErrorMessage = "Konfirmasi password tidak cocok")]
     public string ConfirmPassword { get; set; } = string.Empty;
+
+    // Role opsional — kalau tidak diisi, default ke Employee
+    public string Role { get; set; } = Roles.Employee;
 }

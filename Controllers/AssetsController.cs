@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using InventoryManagement.API.Constants;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -17,6 +19,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetAll()
     {
         var assets = await _assetService.GetAllAsync();
@@ -24,6 +27,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetById(int id)
     {
         var asset = await _assetService.GetByIdAsync(id);
@@ -33,6 +37,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> Create([FromBody] CreateAssetDto dto)
     {
         try
@@ -47,6 +52,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateAssetDto dto)
     {
         try
@@ -63,6 +69,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = Roles.Admin)] 
     public async Task<IActionResult> Delete(int id)
     {
         try
