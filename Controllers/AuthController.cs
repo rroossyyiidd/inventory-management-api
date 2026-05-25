@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InventoryManagement.API.Data;
 using InventoryManagement.API.DTOs.Auth;
+using InventoryManagement.API.Extensions;
+using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Models;
 using InventoryManagement.API.Services.Interfaces;
 
@@ -27,6 +29,7 @@ public class AuthController : ControllerBase
 
     // POST api/auth/register
     [HttpPost("register")]
+    [AllowAnonymous] 
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
@@ -65,6 +68,7 @@ public class AuthController : ControllerBase
 
     // POST api/auth/login
     [HttpPost("login")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
@@ -124,6 +128,29 @@ public class AuthController : ControllerBase
             Email     = user.Email,
             Role      = user.Role,
             CreatedAt = user.CreatedAt
+        });
+    }
+
+     // GET api/auth/me
+    // Endpoint untuk cek siapa user yang sedang login
+    [HttpGet("me")]
+    [Authorize]     // ← wajib login, tanpa token akan dapat 401
+    public IActionResult Me()
+    {
+        // Baca claims dari token via HttpContext.User
+        // Tidak perlu query database sama sekali!
+        var userId    = User.GetUserId();
+        var userEmail = User.GetUserEmail();
+        var userName  = User.GetUserName();
+        var userRole  = User.GetUserRole();
+
+        return Ok(new
+        {
+            id    = userId,
+            name  = userName,
+            email = userEmail,
+            role  = userRole,
+            isAdmin = User.IsAdmin()
         });
     }
 }

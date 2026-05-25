@@ -6,6 +6,7 @@ namespace InventoryManagement.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// [Authorize]
 public class AssetsController : ControllerBase
 {
     private readonly IAssetService _assetService;

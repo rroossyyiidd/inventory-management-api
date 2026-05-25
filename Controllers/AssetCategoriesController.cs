@@ -7,6 +7,7 @@ namespace InventoryManagement.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// [Authorize]
 public class AssetCategoriesController : ControllerBase
 {
     private readonly AppDbContext _context;

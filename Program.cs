@@ -11,7 +11,19 @@ using InventoryManagement.API.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
+// default auth nya [AllowAnonymous]
+// builder.Services.AddControllers()
+//     .AddJsonOptions(options =>
+//     {
+//         options.JsonSerializerOptions.Converters.Add(
+//             new System.Text.Json.Serialization.JsonStringEnumConverter());
+//     });
+
+// default auth nya [Authorize]
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter());
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(
