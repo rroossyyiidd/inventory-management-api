@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Constants;
 using InventoryManagement.API.Data;
 using InventoryManagement.API.Models;
+using InventoryManagement.API.Helpers;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -24,7 +25,7 @@ public class AssetCategoriesController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var categories = await _context.AssetCategories.ToListAsync();
-        return Ok(categories);
+        return Ok(ApiResponse<List<AssetCategory>>.Ok(categories, "Daftar kategori berhasil diambil."));
     }
 
     [HttpGet("{id:int}")]
@@ -33,8 +34,8 @@ public class AssetCategoriesController : ControllerBase
     {
         var category = await _context.AssetCategories.FindAsync(id);
         return category == null
-            ? NotFound(new { message = $"Kategori ID {id} tidak ditemukan." })
-            : Ok(category);
+            ? NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."))
+            : Ok(ApiResponse<AssetCategory>.Ok(category, "Detail kategori berhasil diambil."));
     }
 
     [HttpPost]
@@ -44,7 +45,7 @@ public class AssetCategoriesController : ControllerBase
         category.CreatedAt = DateTime.UtcNow;
         _context.AssetCategories.Add(category);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = category.Id }, category);
+        return CreatedAtAction(nameof(GetById), new { id = category.Id }, ApiResponse<AssetCategory>.Ok(category, "Kategori berhasil dibuat."));
     }
 
     [HttpPut("{id:int}")]
@@ -53,12 +54,12 @@ public class AssetCategoriesController : ControllerBase
     {
         var category = await _context.AssetCategories.FindAsync(id);
         if (category == null)
-            return NotFound(new { message = $"Kategori ID {id} tidak ditemukan." });
+            return NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."));
 
         category.Name        = updated.Name;
         category.Description = updated.Description;
         await _context.SaveChangesAsync();
-        return Ok(category);
+        return Ok(ApiResponse<AssetCategory>.Ok(category, "Kategori berhasil diperbarui."));
     }
 
     [HttpDelete("{id:int}")]
@@ -70,13 +71,13 @@ public class AssetCategoriesController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (category == null)
-            return NotFound(new { message = $"Kategori ID {id} tidak ditemukan." });
+            return NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."));
 
         if (category.Assets.Any())
-            return Conflict(new { message = "Kategori tidak dapat dihapus karena masih ada aset." });
+            return Conflict(ApiResponse.Fail("Kategori tidak dapat dihapus karena masih ada aset."));
 
         _context.AssetCategories.Remove(category);
         await _context.SaveChangesAsync();
-        return NoContent();
+        return Ok(ApiResponse.Ok("Kategori berhasil dihapus."));
     }
 }

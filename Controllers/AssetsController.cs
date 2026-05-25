@@ -3,6 +3,7 @@ using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Constants;
+using InventoryManagement.API.Helpers;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -23,7 +24,7 @@ public class AssetsController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var assets = await _assetService.GetAllAsync();
-        return Ok(assets);
+        return Ok(ApiResponse<IEnumerable<AssetDto>>.Ok(assets, "Daftar aset berhasil diambil."));
     }
 
     [HttpGet("{id:int}")]
@@ -32,8 +33,8 @@ public class AssetsController : ControllerBase
     {
         var asset = await _assetService.GetByIdAsync(id);
         if (asset == null)
-            return NotFound(new { message = $"Aset dengan ID {id} tidak ditemukan." });
-        return Ok(asset);
+            return NotFound(ApiResponse.Fail($"Aset dengan ID {id} tidak ditemukan."));
+        return Ok(ApiResponse<AssetDto>.Ok(asset, "Detail aset berhasil diambil."));
     }
 
     [HttpPost]
@@ -43,11 +44,11 @@ public class AssetsController : ControllerBase
         try
         {
             var created = await _assetService.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ApiResponse<AssetDto>.Ok(created, "Aset berhasil dibuat."));
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new { message = ex.Message });
+            return Conflict(ApiResponse.Fail(ex.Message));
         }
     }
 
@@ -59,12 +60,12 @@ public class AssetsController : ControllerBase
         {
             var updated = await _assetService.UpdateAsync(id, dto);
             if (updated == null)
-                return NotFound(new { message = $"Aset dengan ID {id} tidak ditemukan." });
-            return Ok(updated);
+                return NotFound(ApiResponse.Fail($"Aset dengan ID {id} tidak ditemukan."));
+            return Ok(ApiResponse<AssetDto>.Ok(updated, "Aset berhasil diperbarui."));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse.Fail(ex.Message));
         }
     }
 
@@ -76,12 +77,12 @@ public class AssetsController : ControllerBase
         {
             var success = await _assetService.DeleteAsync(id);
             if (!success)
-                return NotFound(new { message = $"Aset dengan ID {id} tidak ditemukan." });
-            return NoContent();
+                return NotFound(ApiResponse.Fail($"Aset dengan ID {id} tidak ditemukan."));
+            return Ok(ApiResponse.Ok("Aset berhasil dihapus."));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse.Fail(ex.Message));
         }
     }
 }

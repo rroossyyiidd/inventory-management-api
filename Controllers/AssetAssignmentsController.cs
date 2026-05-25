@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Constants;
 using InventoryManagement.API.DTOs.AssetAssignment;
 using InventoryManagement.API.Services.Interfaces;
+using InventoryManagement.API.Helpers;
 
 namespace InventoryManagement.API.Controllers;
 
@@ -23,7 +24,7 @@ public class AssetAssignmentsController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var assignments = await _assignmentService.GetAllAsync();
-        return Ok(assignments);
+        return Ok(ApiResponse<IEnumerable<AssetAssignmentDto>>.Ok(assignments, "Daftar assignment berhasil diambil."));
     }
 
     [HttpGet("{id:int}")]
@@ -32,8 +33,8 @@ public class AssetAssignmentsController : ControllerBase
     {
         var assignment = await _assignmentService.GetByIdAsync(id);
         if (assignment == null)
-            return NotFound(new { message = $"Assignment dengan ID {id} tidak ditemukan." });
-        return Ok(assignment);
+            return NotFound(ApiResponse.Fail($"Assignment dengan ID {id} tidak ditemukan."));
+        return Ok(ApiResponse<AssetAssignmentDto>.Ok(assignment, "Detail assignment berhasil diambil."));
     }
 
     [HttpPost]
@@ -43,15 +44,15 @@ public class AssetAssignmentsController : ControllerBase
         try
         {
             var created = await _assignmentService.AssignAssetAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ApiResponse<AssetAssignmentDto>.Ok(created, "Aset berhasil ditugaskan."));
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return NotFound(ApiResponse.Fail(ex.Message));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse.Fail(ex.Message));
         }
     }
 
@@ -63,12 +64,12 @@ public class AssetAssignmentsController : ControllerBase
         {
             var updated = await _assignmentService.ReturnAssetAsync(id, dto);
             if (updated == null)
-                return NotFound(new { message = $"Assignment dengan ID {id} tidak ditemukan." });
-            return Ok(updated);
+                return NotFound(ApiResponse.Fail($"Assignment dengan ID {id} tidak ditemukan."));
+            return Ok(ApiResponse<AssetAssignmentDto>.Ok(updated, "Aset berhasil dikembalikan."));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse.Fail(ex.Message));
         }
     }
 }
