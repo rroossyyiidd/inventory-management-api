@@ -85,4 +85,15 @@ public class AssetsController : ControllerBase
             return BadRequest(ApiResponse.Fail(ex.Message));
         }
     }
+
+    // GET api/assets/filter?keyword=laptop&status=Available&minPrice=1000000&page=1&pageSize=10
+    [HttpGet("filter")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
+    [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<AssetDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFiltered([FromQuery] AssetFilterDto filter)
+    {
+        var result = await _assetService.GetFilteredAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<AssetDto>>.Ok(
+            result, $"Ditemukan {result.TotalItems} aset."));
+    }
 }

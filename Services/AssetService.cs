@@ -2,6 +2,7 @@ using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Models;
 using InventoryManagement.API.Repositories.Interfaces;
 using InventoryManagement.API.Services.Interfaces;
+using InventoryManagement.API.Helpers;
 
 namespace InventoryManagement.API.Services;
 
@@ -98,4 +99,22 @@ public class AssetService : IAssetService
         AssetCategoryId   = asset.AssetCategoryId,
         AssetCategoryName = asset.AssetCategory?.Name ?? string.Empty
     };
+
+    public async Task<PaginatedResponse<AssetDto>> GetFilteredAsync(AssetFilterDto filter)
+    {
+        // Validasi page size maksimal 100
+        if (filter.PageSize > 100) filter.PageSize = 100;
+        if (filter.Page < 1) filter.Page = 1;
+
+        var (items, totalCount) = await _assetRepository.GetFilteredAsync(filter);
+
+        return new PaginatedResponse<AssetDto>
+        {
+            Items       = items.Select(MapToDto),
+            TotalItems  = totalCount,
+            TotalPages  = (int)Math.Ceiling(totalCount / (double)filter.PageSize),
+            CurrentPage = filter.Page,
+            PageSize    = filter.PageSize
+        };
+    }
 }

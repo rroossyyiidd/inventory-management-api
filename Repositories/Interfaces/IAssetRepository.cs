@@ -1,3 +1,4 @@
+using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Models;
 
 namespace InventoryManagement.API.Repositories.Interfaces;
@@ -10,4 +11,6 @@ public interface IAssetRepository
     Task<Asset> CreateAsync(Asset asset);
     Task<Asset> UpdateAsync(Asset asset);
     Task DeleteAsync(Asset asset);
+
+    Task<(IEnumerable<Asset> Items, int TotalCount)> GetFilteredAsync(AssetFilterDto filter);
 }
