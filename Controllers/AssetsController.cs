@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Services.Interfaces;
+using InventoryManagement.API.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Constants;
 using InventoryManagement.API.Helpers;
@@ -9,7 +10,6 @@ namespace InventoryManagement.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// [Authorize]
 public class AssetsController : ControllerBase
 {
     private readonly IAssetService _assetService;
@@ -19,18 +19,34 @@ public class AssetsController : ControllerBase
         _assetService = assetService;
     }
 
+    // GET api/assets?keyword=laptop&status=Available&categoryId=1&page=1&pageSize=10
     [HttpGet]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
-    public async Task<IActionResult> GetAll()
+    [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<AssetDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll([FromQuery] AssetFilterDto filter)
     {
-        var assets = await _assetService.GetAllAsync();
-        return Ok(ApiResponse<IEnumerable<AssetDto>>.Ok(assets, "Daftar aset berhasil diambil."));
+        var result = await _assetService.GetFilteredAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<AssetDto>>.Ok(
+            result, $"Ditemukan {result.TotalItems} aset."));
     }
 
+    // GET api/assets/{id}
+    // Admin/Manager: full detail with assignments + maintenance logs
+    // Employee: basic detail only
     [HttpGet("{id:int}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetById(int id)
     {
+        var role = User.GetUserRole();
+
+        if (role == Roles.Admin || role == Roles.Manager)
+        {
+            var adminAsset = await _assetService.GetByIdAdminAsync(id);
+            if (adminAsset == null)
+                return NotFound(ApiResponse.Fail($"Aset dengan ID {id} tidak ditemukan."));
+            return Ok(ApiResponse<AssetAdminDto>.Ok(adminAsset, "Detail aset berhasil diambil."));
+        }
+
         var asset = await _assetService.GetByIdAsync(id);
         if (asset == null)
             return NotFound(ApiResponse.Fail($"Aset dengan ID {id} tidak ditemukan."));
@@ -44,7 +60,8 @@ public class AssetsController : ControllerBase
         try
         {
             var created = await _assetService.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ApiResponse<AssetDto>.Ok(created, "Aset berhasil dibuat."));
+            return CreatedAtAction(nameof(GetById), new { id = created.Id },
+                ApiResponse<AssetDto>.Ok(created, "Aset berhasil dibuat."));
         }
         catch (InvalidOperationException ex)
         {
@@ -70,7 +87,7 @@ public class AssetsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = Roles.Admin)] 
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         try
@@ -84,16 +101,5 @@ public class AssetsController : ControllerBase
         {
             return BadRequest(ApiResponse.Fail(ex.Message));
         }
-    }
-
-    // GET api/assets/filter?keyword=laptop&status=Available&minPrice=1000000&page=1&pageSize=10
-    [HttpGet("filter")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
-    [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<AssetDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFiltered([FromQuery] AssetFilterDto filter)
-    {
-        var result = await _assetService.GetFilteredAsync(filter);
-        return Ok(ApiResponse<PaginatedResponse<AssetDto>>.Ok(
-            result, $"Ditemukan {result.TotalItems} aset."));
     }
 }

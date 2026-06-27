@@ -7,7 +7,7 @@ public enum MaintenanceType
     Inspection
 }
 
-public class MaintenanceLog
+public class MaintenanceLog : ISoftDelete
 {
     public int Id { get; set; }
     public MaintenanceType Type { get; set; }
@@ -17,6 +17,7 @@ public class MaintenanceLog
     public decimal? Cost { get; set; }
     public string? TechnicianName { get; set; }
     public bool IsCompleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
 
     public int AssetId { get; set; }
     public Asset Asset { get; set; } = null!;

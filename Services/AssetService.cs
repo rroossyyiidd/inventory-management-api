@@ -16,16 +16,13 @@ public class AssetService : IAssetService
     }
 
     public async Task<IEnumerable<AssetDto>> GetAllAsync()
-    {
-        var assets = await _assetRepository.GetAllAsync();
-        return assets.Select(MapToDto);
-    }
+        => await _assetRepository.GetAllAsync();
 
     public async Task<AssetDto?> GetByIdAsync(int id)
-    {
-        var asset = await _assetRepository.GetByIdAsync(id);
-        return asset == null ? null : MapToDto(asset);
-    }
+        => await _assetRepository.GetPublicDtoByIdAsync(id);
+
+    public async Task<AssetAdminDto?> GetByIdAdminAsync(int id)
+        => await _assetRepository.GetAdminDtoByIdAsync(id);
 
     public async Task<AssetDto> CreateAsync(CreateAssetDto dto)
     {
@@ -45,9 +42,24 @@ public class AssetService : IAssetService
             Status          = AssetStatus.Available
         };
 
+        // CreateAsync loads AssetCategory ref after INSERT — no second full query needed
         var created = await _assetRepository.CreateAsync(asset);
-        var fullAsset = await _assetRepository.GetByIdAsync(created.Id);
-        return MapToDto(fullAsset!);
+
+        return new AssetDto
+        {
+            Id                = created.Id,
+            AssetCode         = created.AssetCode,
+            Name              = created.Name,
+            Description       = created.Description,
+            SerialNumber      = created.SerialNumber,
+            PurchasePrice     = created.PurchasePrice,
+            PurchaseDate      = created.PurchaseDate,
+            Status            = created.Status.ToString(),
+            CreatedAt         = created.CreatedAt,
+            UpdatedAt         = created.UpdatedAt,
+            AssetCategoryId   = created.AssetCategoryId,
+            AssetCategoryName = created.AssetCategory?.Name ?? string.Empty
+        };
     }
 
     public async Task<AssetDto?> UpdateAsync(int id, UpdateAssetDto dto)
@@ -70,8 +82,7 @@ public class AssetService : IAssetService
         asset.AssetCategoryId = dto.AssetCategoryId;
 
         await _assetRepository.UpdateAsync(asset);
-        var updated = await _assetRepository.GetByIdAsync(id);
-        return MapToDto(updated!);
+        return await _assetRepository.GetPublicDtoByIdAsync(id);
     }
 
     public async Task<bool> DeleteAsync(int id)
@@ -86,23 +97,8 @@ public class AssetService : IAssetService
         return true;
     }
 
-    private static AssetDto MapToDto(Asset asset) => new()
-    {
-        Id                = asset.Id,
-        AssetCode         = asset.AssetCode,
-        Name              = asset.Name,
-        Description       = asset.Description,
-        SerialNumber      = asset.SerialNumber,
-        PurchasePrice     = asset.PurchasePrice,
-        PurchaseDate      = asset.PurchaseDate,
-        Status            = asset.Status.ToString(),
-        AssetCategoryId   = asset.AssetCategoryId,
-        AssetCategoryName = asset.AssetCategory?.Name ?? string.Empty
-    };
-
     public async Task<PaginatedResponse<AssetDto>> GetFilteredAsync(AssetFilterDto filter)
     {
-        // Validasi page size maksimal 100
         if (filter.PageSize > 100) filter.PageSize = 100;
         if (filter.Page < 1) filter.Page = 1;
 
@@ -110,7 +106,7 @@ public class AssetService : IAssetService
 
         return new PaginatedResponse<AssetDto>
         {
-            Items       = items.Select(MapToDto),
+            Items       = items,
             TotalItems  = totalCount,
             TotalPages  = (int)Math.Ceiling(totalCount / (double)filter.PageSize),
             CurrentPage = filter.Page,

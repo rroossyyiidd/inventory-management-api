@@ -7,9 +7,9 @@ public interface IAssetService
 {
     Task<IEnumerable<AssetDto>> GetAllAsync();
     Task<AssetDto?> GetByIdAsync(int id);
+    Task<AssetAdminDto?> GetByIdAdminAsync(int id);
     Task<AssetDto> CreateAsync(CreateAssetDto dto);
     Task<AssetDto?> UpdateAsync(int id, UpdateAssetDto dto);
     Task<bool> DeleteAsync(int id);
-
     Task<PaginatedResponse<AssetDto>> GetFilteredAsync(AssetFilterDto filter);
 }

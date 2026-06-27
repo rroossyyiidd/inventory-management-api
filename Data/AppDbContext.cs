@@ -74,6 +74,8 @@ public class AppDbContext : DbContext
         // Global Query Filter — otomatis filter data yang sudah di-soft delete
         modelBuilder.Entity<Asset>().HasQueryFilter(a => a.DeletedAt == null);
         modelBuilder.Entity<Employee>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<AssetAssignment>().HasQueryFilter(aa => aa.DeletedAt == null);
+        modelBuilder.Entity<MaintenanceLog>().HasQueryFilter(ml => ml.DeletedAt == null);
 
         modelBuilder.Entity<AssetCategory>(entity =>
         {

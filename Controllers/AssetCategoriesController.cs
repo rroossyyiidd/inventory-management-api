@@ -1,83 +1,74 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using InventoryManagement.API.Constants;
-using InventoryManagement.API.Data;
-using InventoryManagement.API.Models;
+using InventoryManagement.API.DTOs.AssetCategory;
 using InventoryManagement.API.Helpers;
+using InventoryManagement.API.Services.Interfaces;
 
 namespace InventoryManagement.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// [Authorize]
 public class AssetCategoriesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IAssetCategoryService _categoryService;
 
-    public AssetCategoriesController(AppDbContext context)
+    public AssetCategoriesController(IAssetCategoryService categoryService)
     {
-        _context = context;
+        _categoryService = categoryService;
     }
 
     [HttpGet]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetAll()
     {
-        var categories = await _context.AssetCategories.ToListAsync();
-        return Ok(ApiResponse<List<AssetCategory>>.Ok(categories, "Daftar kategori berhasil diambil."));
+        var categories = await _categoryService.GetAllAsync();
+        return Ok(ApiResponse<IEnumerable<AssetCategoryDto>>.Ok(categories, "Daftar kategori berhasil diambil."));
     }
 
     [HttpGet("{id:int}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager},{Roles.Employee}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var category = await _context.AssetCategories.FindAsync(id);
+        var category = await _categoryService.GetByIdAsync(id);
         return category == null
             ? NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."))
-            : Ok(ApiResponse<AssetCategory>.Ok(category, "Detail kategori berhasil diambil."));
+            : Ok(ApiResponse<AssetCategoryDto>.Ok(category, "Detail kategori berhasil diambil."));
     }
 
     [HttpPost]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
-    public async Task<IActionResult> Create([FromBody] AssetCategory category)
+    public async Task<IActionResult> Create([FromBody] CreateAssetCategoryDto dto)
     {
-        category.CreatedAt = DateTime.UtcNow;
-        _context.AssetCategories.Add(category);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = category.Id }, ApiResponse<AssetCategory>.Ok(category, "Kategori berhasil dibuat."));
+        var created = await _categoryService.CreateAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id },
+            ApiResponse<AssetCategoryDto>.Ok(created, "Kategori berhasil dibuat."));
     }
 
     [HttpPut("{id:int}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
-    public async Task<IActionResult> Update(int id, [FromBody] AssetCategory updated)
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateAssetCategoryDto dto)
     {
-        var category = await _context.AssetCategories.FindAsync(id);
-        if (category == null)
-            return NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."));
-
-        category.Name        = updated.Name;
-        category.Description = updated.Description;
-        await _context.SaveChangesAsync();
-        return Ok(ApiResponse<AssetCategory>.Ok(category, "Kategori berhasil diperbarui."));
+        var updated = await _categoryService.UpdateAsync(id, dto);
+        return updated == null
+            ? NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."))
+            : Ok(ApiResponse<AssetCategoryDto>.Ok(updated, "Kategori berhasil diperbarui."));
     }
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
-        var category = await _context.AssetCategories
-            .Include(c => c.Assets)
-            .FirstOrDefaultAsync(c => c.Id == id);
-
-        if (category == null)
-            return NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."));
-
-        if (category.Assets.Any())
-            return Conflict(ApiResponse.Fail("Kategori tidak dapat dihapus karena masih ada aset."));
-
-        _context.AssetCategories.Remove(category);
-        await _context.SaveChangesAsync();
-        return Ok(ApiResponse.Ok("Kategori berhasil dihapus."));
+        try
+        {
+            var success = await _categoryService.DeleteAsync(id);
+            return success
+                ? Ok(ApiResponse.Ok("Kategori berhasil dihapus."))
+                : NotFound(ApiResponse.Fail($"Kategori ID {id} tidak ditemukan."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ApiResponse.Fail(ex.Message));
+        }
     }
 }

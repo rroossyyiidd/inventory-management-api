@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using InventoryManagement.API.Data;
+using InventoryManagement.API.DTOs.Asset;
 using InventoryManagement.API.Models;
 using InventoryManagement.API.Repositories.Interfaces;
-using InventoryManagement.API.DTOs.Asset;
 
 namespace InventoryManagement.API.Repositories;
 
@@ -15,12 +15,92 @@ public class AssetRepository : IAssetRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Asset>> GetAllAsync()
+    public async Task<IEnumerable<AssetDto>> GetAllAsync()
     {
         return await _context.Assets
-            .Include(a => a.AssetCategory)
             .OrderBy(a => a.AssetCode)
+            .Select(a => new AssetDto
+            {
+                Id                = a.Id,
+                AssetCode         = a.AssetCode,
+                Name              = a.Name,
+                Description       = a.Description,
+                SerialNumber      = a.SerialNumber,
+                PurchasePrice     = a.PurchasePrice,
+                PurchaseDate      = a.PurchaseDate,
+                Status            = a.Status.ToString(),
+                CreatedAt         = a.CreatedAt,
+                UpdatedAt         = a.UpdatedAt,
+                AssetCategoryId   = a.AssetCategoryId,
+                AssetCategoryName = a.AssetCategory.Name
+            })
             .ToListAsync();
+    }
+
+    public async Task<AssetDto?> GetPublicDtoByIdAsync(int id)
+    {
+        return await _context.Assets
+            .Where(a => a.Id == id)
+            .Select(a => new AssetDto
+            {
+                Id                = a.Id,
+                AssetCode         = a.AssetCode,
+                Name              = a.Name,
+                Description       = a.Description,
+                SerialNumber      = a.SerialNumber,
+                PurchasePrice     = a.PurchasePrice,
+                PurchaseDate      = a.PurchaseDate,
+                Status            = a.Status.ToString(),
+                CreatedAt         = a.CreatedAt,
+                UpdatedAt         = a.UpdatedAt,
+                AssetCategoryId   = a.AssetCategoryId,
+                AssetCategoryName = a.AssetCategory.Name
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<AssetAdminDto?> GetAdminDtoByIdAsync(int id)
+    {
+        return await _context.Assets
+            .Where(a => a.Id == id)
+            .Select(a => new AssetAdminDto
+            {
+                Id                = a.Id,
+                AssetCode         = a.AssetCode,
+                Name              = a.Name,
+                Description       = a.Description,
+                SerialNumber      = a.SerialNumber,
+                PurchasePrice     = a.PurchasePrice,
+                PurchaseDate      = a.PurchaseDate,
+                Status            = a.Status.ToString(),
+                CreatedAt         = a.CreatedAt,
+                UpdatedAt         = a.UpdatedAt,
+                AssetCategoryId   = a.AssetCategoryId,
+                AssetCategoryName = a.AssetCategory.Name,
+                Assignments = a.AssetAssignments.Select(aa => new AssignmentSummaryDto
+                {
+                    Id           = aa.Id,
+                    EmployeeId   = aa.EmployeeId,
+                    EmployeeName = aa.Employee.FullName,
+                    EmployeeCode = aa.Employee.EmployeeCode,
+                    AssignedAt   = aa.AssignedAt,
+                    ReturnedAt   = aa.ReturnedAt,
+                    IsActive     = aa.IsActive,
+                    Notes        = aa.Notes
+                }),
+                MaintenanceLogs = a.MaintenanceLogs.Select(ml => new MaintenanceSummaryDto
+                {
+                    Id             = ml.Id,
+                    Type           = ml.Type.ToString(),
+                    ScheduledAt    = ml.ScheduledAt,
+                    CompletedAt    = ml.CompletedAt,
+                    Description    = ml.Description,
+                    Cost           = ml.Cost,
+                    TechnicianName = ml.TechnicianName,
+                    IsCompleted    = ml.IsCompleted
+                })
+            })
+            .FirstOrDefaultAsync();
     }
 
     public async Task<Asset?> GetByIdAsync(int id)
@@ -28,7 +108,7 @@ public class AssetRepository : IAssetRepository
         return await _context.Assets
             .Include(a => a.AssetCategory)
             .Include(a => a.AssetAssignments)
-                .ThenInclude(aa => aa.Employee)
+            .Include(a => a.MaintenanceLogs)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
@@ -44,6 +124,8 @@ public class AssetRepository : IAssetRepository
     {
         _context.Assets.Add(asset);
         await _context.SaveChangesAsync();
+        // Load category name without re-fetching the full asset (H2 fix)
+        await _context.Entry(asset).Reference(a => a.AssetCategory).LoadAsync();
         return asset;
     }
 
@@ -56,28 +138,32 @@ public class AssetRepository : IAssetRepository
 
     public async Task DeleteAsync(Asset asset)
     {
-        asset.DeletedAt = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
+        asset.DeletedAt = now;
+
+        // Cascade soft-delete so orphan check isn't needed across queries
+        foreach (var assignment in asset.AssetAssignments.Where(a => a.DeletedAt == null))
+            assignment.DeletedAt = now;
+
+        foreach (var log in asset.MaintenanceLogs.Where(l => l.DeletedAt == null))
+            log.DeletedAt = now;
+
         _context.Assets.Update(asset);
         await _context.SaveChangesAsync();
     }
 
-    // Di Repository, tambahkan method ini kalau dibutuhkan
     public async Task<IEnumerable<Asset>> GetAllIncludingDeletedAsync()
     {
         return await _context.Assets
-            .IgnoreQueryFilters()   // ← bypass global query filter
+            .IgnoreQueryFilters()
             .Include(a => a.AssetCategory)
             .ToListAsync();
     }
 
-    public async Task<(IEnumerable<Asset> Items, int TotalCount)> GetFilteredAsync(AssetFilterDto filter)
+    public async Task<(IEnumerable<AssetDto> Items, int TotalCount)> GetFilteredAsync(AssetFilterDto filter)
     {
-        // Mulai dari semua asset, belum dieksekusi ke DB
-        var query = _context.Assets
-            .Include(a => a.AssetCategory)
-            .AsQueryable();
+        var query = _context.Assets.AsQueryable();
 
-        // ✅ Filter 1 — Keyword (cari di nama atau asset code)
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
             var keyword = filter.Keyword.ToLower().Trim();
@@ -86,37 +172,30 @@ public class AssetRepository : IAssetRepository
                 a.AssetCode.ToLower().Contains(keyword));
         }
 
-        // ✅ Filter 2 — Status
         if (!string.IsNullOrWhiteSpace(filter.Status))
         {
             if (Enum.TryParse<AssetStatus>(filter.Status, true, out var status))
                 query = query.Where(a => a.Status == status);
         }
 
-        // ✅ Filter 3 — Kategori
         if (filter.CategoryId.HasValue)
             query = query.Where(a => a.AssetCategoryId == filter.CategoryId.Value);
 
-        // ✅ Filter 4 — Rentang harga
         if (filter.MinPrice.HasValue)
             query = query.Where(a => a.PurchasePrice >= filter.MinPrice.Value);
 
         if (filter.MaxPrice.HasValue)
             query = query.Where(a => a.PurchasePrice <= filter.MaxPrice.Value);
 
-        // ✅ Filter 5 — Rentang tanggal pembelian
         if (filter.PurchaseDateFrom.HasValue)
             query = query.Where(a => a.PurchaseDate >= filter.PurchaseDateFrom.Value);
 
         if (filter.PurchaseDateTo.HasValue)
             query = query.Where(a => a.PurchaseDate <= filter.PurchaseDateTo.Value);
 
-        // Hitung total sebelum pagination
-        // Query ke DB baru terjadi di sini untuk hitung total
         var totalCount = await query.CountAsync();
 
-        // ✅ Sorting
-        query = filter.SortBy.ToLower() switch
+        var sortedQuery = filter.SortBy.ToLower() switch
         {
             "name"          => filter.SortOrder == "desc"
                                 ? query.OrderByDescending(a => a.Name)
@@ -130,13 +209,27 @@ public class AssetRepository : IAssetRepository
             "status"        => filter.SortOrder == "desc"
                                 ? query.OrderByDescending(a => a.Status)
                                 : query.OrderBy(a => a.Status),
-            _               => query.OrderBy(a => a.AssetCode)  // default
+            _               => query.OrderBy(a => a.AssetCode)
         };
 
-        // ✅ Pagination
-        var items = await query
+        var items = await sortedQuery
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
+            .Select(a => new AssetDto
+            {
+                Id                = a.Id,
+                AssetCode         = a.AssetCode,
+                Name              = a.Name,
+                Description       = a.Description,
+                SerialNumber      = a.SerialNumber,
+                PurchasePrice     = a.PurchasePrice,
+                PurchaseDate      = a.PurchaseDate,
+                Status            = a.Status.ToString(),
+                CreatedAt         = a.CreatedAt,
+                UpdatedAt         = a.UpdatedAt,
+                AssetCategoryId   = a.AssetCategoryId,
+                AssetCategoryName = a.AssetCategory.Name
+            })
             .ToListAsync();
 
         return (items, totalCount);
